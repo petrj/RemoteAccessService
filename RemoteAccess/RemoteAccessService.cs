@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using System.Threading;
 using System.Data.Common;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace RemoteAccess
 {
@@ -19,6 +20,11 @@ namespace RemoteAccess
         private ILoggingService _loggingService;
 
         private const int BufferSize = 1024;
+        private const int ConnectTimeoutMS = 2000;
+        private const int ReceiveTimeoutMS = 2000;
+        private const int SendTimeoutMS = 2000;
+        private const int MaxMessageSize = 1000000;
+
         private const string TerminateString = "b9fb065b-dee4-4b1e-b8b4-b0c82556380c";
         private string _ip;
         private int _port;
@@ -87,9 +93,13 @@ namespace RemoteAccess
                                 {
                                     break;
                                 }
+                                if (data.Length > MaxMessageSize)
+                                {
+                                    break;
+                                }
                             }
 
-                            var messageString = data.Substring(0,data.Length-TerminateString.Length);
+                            var messageString = data.Substring(0, data.Length - TerminateString.Length);
 
                             var ok = true;
 
@@ -125,6 +135,8 @@ namespace RemoteAccess
                                     };
                                     var response = JsonConvert.SerializeObject(responseMessage);
                                     var responseEncrypted = CryptographyService.EncryptString(_securityKey, response);
+
+                                    handler.SendTimeout = SendTimeoutMS;
 
                                     handler.Send(Encoding.ASCII.GetBytes(responseEncrypted));
                                     handler.Send(Encoding.ASCII.GetBytes(TerminateString));
@@ -200,67 +212,94 @@ namespace RemoteAccess
             _worker.CancelAsync();
         }
 
-        public RemoteAccessMessage SendMessage(RemoteAccessMessage message)
+        public async Task<RemoteAccessMessage> SendMessage(RemoteAccessMessage message)
         {
-            _loggingService.Info($"Sending: {message}");
+            _loggingService.Info($"[RAS] Sending: {message}");
 
             var bytes = new Byte[BufferSize];
 
             var ipAddress = IPAddress.Parse(_ip);
-            var localEndPoint = new IPEndPoint(ipAddress, _port);
+            var remoteEndPoint = new IPEndPoint(ipAddress, _port);
 
             using (var sender = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp))
             {
                 try
                 {
-                    sender.Connect(localEndPoint);
+                    int connectionTimeoutMs = ConnectTimeoutMS; // Set the connection timeout value in milliseconds
 
-                    var messageJSON = JsonConvert.SerializeObject(message);
-                    var messageEncrypted = CryptographyService.EncryptString(_securityKey, messageJSON);
+                    Task connectTask = sender.ConnectAsync(remoteEndPoint);
+                    Task delayTask = Task.Delay(connectionTimeoutMs);
 
-                    int bytesSent = sender.Send(Encoding.ASCII.GetBytes(messageEncrypted));
-                    bytesSent +=    sender.Send(Encoding.ASCII.GetBytes(TerminateString));
-
-                    // Receive response
-
-                    string data = null;
-
-                    while (true)
+                    if (await Task.WhenAny(connectTask, delayTask) == connectTask)
                     {
-                        bytes = new byte[BufferSize];
-                        int bytesRec = sender.Receive(bytes);
-                        data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
-                        if (data.IndexOf(TerminateString) > -1)
+                        var messageJSON = JsonConvert.SerializeObject(message);
+                        var messageEncrypted = CryptographyService.EncryptString(_securityKey, messageJSON);
+
+                        int bytesSent = sender.Send(Encoding.ASCII.GetBytes(messageEncrypted));
+                        bytesSent += sender.Send(Encoding.ASCII.GetBytes(TerminateString));
+
+                        // Receive response
+
+                        sender.ReceiveTimeout = ReceiveTimeoutMS;
+
+                        string data = null;
+
+                        while (true)
                         {
-                            break;
+                            bytes = new byte[BufferSize];
+                            int bytesRec = sender.Receive(bytes);
+                            if (bytesRec == 0)
+                            {
+                                _loggingService.Info($"[RAS] No byte received!");
+                                break;
+                            }
+                            data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                            if (data.IndexOf(TerminateString) > -1)
+                            {
+                                break;
+                            }
+                            if (data.Length > MaxMessageSize)
+                            {
+                                break;
+                            }
                         }
-                    }
 
-                    RemoteAccessMessage responseMessage = null;
-                    try
+                        RemoteAccessMessage responseMessage = null;
+                        if (data != null)
+                        {
+                            try
+                            {
+                                var messageString = data.Substring(0, data.Length - TerminateString.Length);
+
+                                var decryptedData = CryptographyService.DecryptString(_securityKey, messageString);
+
+                                responseMessage = JsonConvert.DeserializeObject<RemoteAccessMessage>(decryptedData);
+
+                                _loggingService.Info($"[RAS] Response: {responseMessage}");
+
+                            }
+                            catch (Exception ex)
+                            {
+                                _loggingService.Error(ex, "[RAS]: error reading message response");
+                            }
+                        }
+
+                        sender.Shutdown(SocketShutdown.Both);
+                        sender.Close();
+
+                        return responseMessage;
+                    }
+                    else
                     {
-                        var messageString = data.Substring(0, data.Length - TerminateString.Length);
-
-                        var decryptedData = CryptographyService.DecryptString(_securityKey, messageString);
-
-                        responseMessage = JsonConvert.DeserializeObject<RemoteAccessMessage>(decryptedData);
-
-                        _loggingService.Info($"Response: {responseMessage}");
-
-                    }
-                    catch (Exception ex)
-                    {
-                        _loggingService.Error(ex, "[RAS]: error reading message response");
+                        // Connection attempt timed out
+                        _loggingService.Info($"[RAS] Timeout");
+                        return null;
                     }
 
-                    sender.Shutdown(SocketShutdown.Both);
-                    sender.Close();
-
-                    return responseMessage;
                 }
                 catch (Exception e)
                 {
-                    _loggingService.Error(e,"[RAS]");
+                    _loggingService.Error(e, "[RAS]");
                     return null;
                 }
             }
