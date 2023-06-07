@@ -1,4 +1,4 @@
 Simple client-server TCP-IP communication library 
 
-# .NET
-# symetric encryption
+- .NET Standard 2.0
+- encryption using symetric key
