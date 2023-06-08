@@ -4,11 +4,11 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 	  <RepositoryUrl>https://github.com/petrj/NugetLibrary</RepositoryUrl>
-	  <AssemblyVersion>1.0.0.2</AssemblyVersion>
-	  <FileVersion>1.0.0.2</FileVersion>
-    <Description>Simple logging library</Description>
+	  <AssemblyVersion>1.0.0.4</AssemblyVersion>
+	  <FileVersion>1.0.0.4</FileVersion>
+    <Description>Simple client-server communication library</Description>
     <PackageProjectUrl>https://github.com/petrj/RemoteAccessService</PackageProjectUrl>
-    <PackageVersion>1.0.2</PackageVersion>
+    <PackageVersion>1.0.4</PackageVersion>
     <Authors>Petr Janousek</Authors>
   </PropertyGroup>
 

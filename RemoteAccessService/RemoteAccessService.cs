@@ -11,7 +11,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-namespace RemoteAccess
+namespace RemoteAccessService
 {
     public class RemoteAccessService
     {

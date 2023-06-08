@@ -1,5 +1,5 @@
 ﻿using LoggerService;
-using RemoteAccess;
+using RemoteAccessService;
 
 void OnMessageReceived(RemoteAccessMessage message)
 {
@@ -21,11 +21,11 @@ var ip = "10.0.0.2";
 var port = 35598;
 var key = "abrakadabra";
 
-var remoteAccesssServer = new RemoteAccessService(new BasicLoggingService());
+var remoteAccesssServer = new RemoteAccessService.RemoteAccessService(new BasicLoggingService());
 remoteAccesssServer.SetConnection(ip, port, key);
 remoteAccesssServer.StartListening(OnMessageReceived, "Server");
 
-var remoteAccesssClient = new RemoteAccessService(new BasicLoggingService());
+var remoteAccesssClient = new RemoteAccessService.RemoteAccessService(new BasicLoggingService());
 remoteAccesssClient.SetConnection(ip, port, key);
 remoteAccesssClient.SendMessage(new RemoteAccessMessage()
 {
