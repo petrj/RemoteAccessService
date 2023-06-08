@@ -3,11 +3,18 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-	<RepositoryUrl>https://github.com/petrj/NugetLibrary</RepositoryUrl>
+	  <RepositoryUrl>https://github.com/petrj/NugetLibrary</RepositoryUrl>
+	  <AssemblyVersion>1.0.0.2</AssemblyVersion>
+	  <FileVersion>1.0.0.2</FileVersion>
+    <Description>Simple logging library</Description>
+    <PackageProjectUrl>https://github.com/petrj/RemoteAccessService</PackageProjectUrl>
+    <PackageVersion>1.0.2</PackageVersion>
+    <Authors>Petr Janousek</Authors>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="LoggerService" Version="1.0.0" />
+    <PackageReference Include="LoggerService" Version="1.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
 </Project>
